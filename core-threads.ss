@@ -56,11 +56,14 @@
   descriptor value. When the invocation of thunk returns, 
   the thread created to invoke thunk terminates.
 |#
+
+;; return t instead of tid.
 (define (thread thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
 	 [t (make-thread (make-engine thunk) tid #f #f)])
-    (enqueue t)))
+    (enqueue t)
+    t))
 
 ;; creates a thread.... with a special property
 (define (thread/suspend-to-kill thunk)
@@ -70,8 +73,8 @@
     (enqueue t)))
 
 ;; what if thread has terminated?
-(define (thread? v)
-  (and (> v 0) (<= v thread-id-counter)))
+;;(define (thread? v)
+;; provided.
 
 (define (current-thread)
   ;; what if there is no current thread?
@@ -79,6 +82,8 @@
     (if (empty? q)
 	#f
 	(thread-id (car q)))))
+
+#|
 
 (define call-in-nested-thread  ;; thunk [cust]
   (case-lambda 
@@ -151,6 +156,7 @@
   )
 
 ;; 11.1.4 thread mailboxes
+;; do this next. after testing threads.
 (define thread-send ;; thd v [fail-thunk]
   (case-lambda
    [(thd v)
@@ -161,6 +167,7 @@
 (define (thread-receive)
   )
 
+;; optional failure continuation
 (define (thread-try-receive)
   )
 
@@ -170,3 +177,4 @@
 (define (thread-rewind-receive lst)
   )
 
+|#

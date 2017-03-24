@@ -6,6 +6,8 @@
           with-continuation-mark
           continuation-mark-set-first
           current-continuation-marks
+	  ;; threads
+	  thread thread/suspend-to-kill current-thread thread? 
 
           make-thread-cell
           thread-cell?
@@ -286,7 +288,8 @@
           unsafe-string-length)
   (import (rename (except (chezscheme)
                           date? make-date
-                          list?)
+                          list?
+			  thread?)
                   [date-second chez:date-second]
                   [date-minute chez:date-minute]
                   [date-hour chez:date-hour]
@@ -319,6 +322,7 @@
   (include "core-hash.ss")
   (include "core-lock.ss")
   (include "core-thread-cell.ss")
+  (include "core-threads.ss")
   (include "core-control.ss")
   (include "core-parameter.ss")
   (include "core-error.ss")
