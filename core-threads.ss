@@ -1,5 +1,6 @@
 
 (define-record thread-internal (eng id s-to-k? suspended?))
+;; https://docs.racket-lang.org/reference/threads.html
 (define-record scheduler (queue idle?))
 
 (define (global-queue)
@@ -53,8 +54,6 @@
   the thread created to invoke thunk terminates.
 |#
 
-;; return t instead of tid.
-
 (define (thread thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
@@ -67,7 +66,8 @@
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
 	 [t (make-thread-internal (make-engine thunk) tid #t #f)])
-    (enqueue t)))
+    (enqueue t)
+    t))
 
 ;; what if thread has terminated?
 (define (thread? v)

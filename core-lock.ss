@@ -8,7 +8,6 @@
 
 (define (create-mcs-spinlock) (make-mcs-spinlock #f #f))
 |#
-
 (meta-cond
  [(guard (x [#t #t]) (eval 'make-mutex) #f)
   ;; Using a Chez Scheme build without thread support.
