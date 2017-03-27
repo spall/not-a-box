@@ -244,8 +244,6 @@
 (define (wrap-evt e v) e)
 (define always-evt 'always)
 (define (sleep . args) (void))
-(define (thread thunk) (void))
-(define (current-thread) 't)
 (define (thread-wait t) t)
 (define (kill-thread t) (void))
 (define (thread-suspend t) (void))

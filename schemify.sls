@@ -20,7 +20,8 @@
                           set-box!
                           date? make-date date-second date-minute date-hour date-day date-month date-year
                           date-week-day date-year-day
-                          random)
+                          random
+			  thread?)
                   [void chez:void])
           (rename (core)
                   [correlated? core:correlated?]

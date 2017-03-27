@@ -104,7 +104,8 @@
                           gensym symbol->string
                           date? make-date date-second date-minute date-hour date-day date-month date-year
                           date-week-day date-year-day
-                          random)
+                          random
+			  thread?)
                   [make-parameter chez:make-parameter]
                   [void chez:void]
                   [standard-input-port current-input-port]

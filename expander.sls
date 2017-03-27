@@ -70,7 +70,7 @@
                           date? make-date date-second date-minute date-hour date-day date-month date-year
                           date-week-day date-year-day
                           open-input-output-file
-                          void sleep random)
+                          void sleep random thread?)
                   [fprintf chez:fprintf]
                   [current-error-port chez:current-error-port]
                   [string->number chez:string->number]
