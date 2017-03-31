@@ -65,6 +65,9 @@ hash-demo: core.so
 struct-demo: core.so
 	$(SCHEME) core.so struct-demo.ss
 
+threads-demo: core.so
+	$(SCHEME) core.so threads-demo.ss
+
 CORE_SRCS = core-constant.ss \
             core-hash-code.ss \
             core-struct.ss \

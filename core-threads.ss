@@ -1,7 +1,9 @@
 
-(define-record thread-internal (eng id s-to-k? suspended?))
+(define-record thread-internal (eng id s-to-k? suspended? completed expired))
 ;; https://docs.racket-lang.org/reference/threads.html
 (define-record scheduler (queue idle?))
+;; i think i need a lock already. since the busy loop is in 1 thread and things are enqueued from
+;; the main thread
 
 (define (global-queue)
   (scheduler-queue global-scheduler))
@@ -17,34 +19,31 @@
 				(list t))))
 
 (define (thread-completed fuel values)
-  (set-scheduler-queue! global-scheduler ;; remove self from queue.
+  (set-scheduler-queue! global-scheduler ;; remove self from queue. 
 			(cdr (scheduler-queue global-scheduler)))
   (set-scheduler-idle?! global-scheduler #t)
   values)
 
 (define (thread-expired t)
   (lambda (eng)
+    (set-scheduler-queue! global-scheduler ;; remove self from queue. 
+			  (cdr (scheduler-queue global-scheduler)))
+    (set-scheduler-idle?! global-scheduler #t)
     (set-thread-internal-eng! t eng)
     (enqueue t)))
 
 (define (busy-loop)
   (cond
    [(atom? (scheduler-queue global-scheduler)) ;; nothing to schedule
-    (engine-block)
     (busy-loop)]
    [(scheduler-idle? global-scheduler) ;; something to schedule
     (let ([newt (car (scheduler-queue global-scheduler))])
       (set-scheduler-idle?! global-scheduler #f)
-      ((thread-internal-eng newt) 50 thread-completed (thread-expired newt)))]
+      ((thread-internal-eng newt) 50 (thread-internal-completed newt) 
+       ((thread-internal-expired newt) newt))
+      (busy-loop))]
    [else ;; something already running
-    (engine-block)
     (busy-loop)]))
-
-(define (sched-finished fuel values)
-  (printf "This should never happen!\n"))
-
-(define (sched-complete eng)
-  (eng 500 sched-finished sched-complete))
 
 ;; 11.1.1 creating threads
 #|
@@ -57,7 +56,8 @@
 (define (thread thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
-	 [t (make-thread-internal (make-engine thunk) tid #f #f)])
+	 [t (make-thread-internal (make-engine thunk) tid #f #f
+				  thread-completed thread-expired)])
     (enqueue t)
     t))
 
@@ -65,11 +65,11 @@
 (define (thread/suspend-to-kill thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
-	 [t (make-thread-internal (make-engine thunk) tid #t #f)])
+	 [t (make-thread-internal (make-engine thunk) tid #t #f
+				  thread-completed thread-expired)])
     (enqueue t)
     t))
 
-;; what if thread has terminated?
 (define (thread? v)
   (thread-internal? v))
 
@@ -81,4 +81,5 @@
 	(car q))))
 
 ;; start scheduler.
-;;((make-engine busy-loop) 10 sched-finished sched-complete)
+(fork-thread busy-loop)
+

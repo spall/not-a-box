@@ -322,7 +322,6 @@
   (include "core-hash.ss")
   (include "core-lock.ss")
   (include "core-thread-cell.ss")
-  (include "core-threads.ss")
   (include "core-control.ss")
   (include "core-parameter.ss")
   (include "core-error.ss")
@@ -340,6 +339,7 @@
   (include "core-memory.ss")
   (include "core-system.ss")
   (include "core-unsafe.ss")
+  (include "core-threads.ss")
   
   (set-base-exception-handler!)
   (set-primitive-applicables!))
