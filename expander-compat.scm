@@ -248,7 +248,6 @@
 (define (kill-thread t) (void))
 (define (thread-suspend t) (void))
 (define (thread-resume t) (void))
-(define (thread-send t v) t)
 (define (thread-receive-evt t) 'thread-receive-evt)
 (define (thread-group? v) #f)
 (define (make-thread-group . args) 'thread-group)
