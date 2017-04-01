@@ -1,9 +1,29 @@
 
-(define-record thread-internal (eng id s-to-k? suspended? completed expired))
+(define-record thread-internal (eng id s-to-k? suspended? completed expired mailbox))
 ;; https://docs.racket-lang.org/reference/threads.html
 (define-record scheduler (queue idle?))
 ;; i think i need a lock already. since the busy loop is in 1 thread and things are enqueued from
 ;; the main thread
+
+(define (in-queue? thd queue)
+  (cond
+   [(atom? queue)
+    #f]
+   [(eq? thd (car queue))
+    #t]
+   [else
+    (in-queue? thd (cdr queue))]))
+      
+
+;; need to change when locks are added
+(define (thread-msg-block thd)
+  (let loop ()
+    (if (atom? (thread-internal-mailbox thd))
+	(loop)
+	(let* ([mailbox (thread-internal-mailbox thd)]
+	       [mail (car mailbox)])
+	  (set-thread-internal-mailbox! thd (cdr mailbox))
+	  mail))))
 
 (define (global-queue)
   (scheduler-queue global-scheduler))
@@ -57,7 +77,7 @@
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
 	 [t (make-thread-internal (make-engine thunk) tid #f #f
-				  thread-completed thread-expired)])
+				  thread-completed thread-expired '())])
     (enqueue t)
     t))
 
@@ -66,7 +86,7 @@
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
 	 [t (make-thread-internal (make-engine thunk) tid #t #f
-				  thread-completed thread-expired)])
+				  thread-completed thread-expired '())])
     (enqueue t)
     t))
 
@@ -80,6 +100,59 @@
 	#f
 	(car q))))
 
+(define (thread-running? thd)
+  ;; is thread in list? is thread not suspended?
+  (and (in-queue? thd (scheduler-queue global-scheduler))
+       (not (thread-internal-suspended? thd))))
+
+;; MAILBOXES
+
+(define thread-send
+  (case-lambda
+   [(thd msg)
+    (if (not (thread-running? thd))
+	((lambda () (raise-mismatch-error 'thread-send "Could not send message ~v\n" msg)))
+	(set-thread-internal-mailbox! thd (append (thread-internal-mailbox thd) (list msg))))
+    ]
+   [(thd msg fail)
+    (if (thread-running? thd)
+	(set-thread-internal-mailbox! thd (append (thread-internal-mailbox thd) (list msg)))
+	(if (not fail)
+	    #f
+	    (fail)))
+    ]))
+
+(define (thread-receive)
+  ;; what if there is no current thread...
+  (let ([ct (current-thread)])
+    (if (not ct)
+	#f
+	(thread-msg-block ct))))
+
+;; need ot change when locks are added
+(define (thread-try-receive)
+  ;; what if there is no current thread...
+  (let ([ct (current-thread)])
+    (cond
+     [(not ct) #f]
+     [(atom? (thread-internal-mailbox ct))
+      #f]
+     [else
+      (let* ([mailbox (thread-internal-mailbox ct)]
+	     [mail (car mailbox)])
+	(set-thread-internal-mailbox! ct (cdr mailbox))
+	mail)])))
+
+(define (thread-rewind-receive lst)
+  ;; what if there is no current thread...
+  (let ([ct (current-thread)])
+    (if (not ct)
+	#f
+	(set-thread-internal-mailbox! ct (fold-left (lambda (accu x)
+						      (cons x accu))
+						    (thread-internal-mailbox ct)
+						    lst)))))
+
 ;; start scheduler.
-(fork-thread busy-loop)
+  (fork-thread busy-loop)
 
