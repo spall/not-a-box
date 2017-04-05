@@ -1,5 +1,5 @@
 
-(define-record thread-internal (eng id s-to-k? suspended? completed expired mailbox))
+(define-record thread-internal (eng id s-to-k? suspended? terminated? completed expired mailbox))
 ;; https://docs.racket-lang.org/reference/threads.html
 (define-record scheduler (queue idle?))
 ;; i think i need a lock already. since the busy loop is in 1 thread and things are enqueued from
@@ -76,7 +76,7 @@
 (define (thread thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
-	 [t (make-thread-internal (make-engine thunk) tid #f #f
+	 [t (make-thread-internal (make-engine thunk) tid #f #f #f
 				  thread-completed thread-expired '())])
     (enqueue t)
     t))
@@ -85,7 +85,7 @@
 (define (thread/suspend-to-kill thunk)
   (let* ([tid (begin (set! thread-id-counter (+ 1 thread-id-counter))
 		     thread-id-counter)]
-	 [t (make-thread-internal (make-engine thunk) tid #t #f
+	 [t (make-thread-internal (make-engine thunk) tid #t #f #f
 				  thread-completed thread-expired '())])
     (enqueue t)
     t))
@@ -100,10 +100,68 @@
 	#f
 	(car q))))
 
+(define (is-front? thd q)
+  (cond
+   [(atom? q)
+    #f]
+   [(eq? thd (car q))
+    #t]
+   [else 
+    #f]))
+
+(define (remove-from-queue thd q)
+  (cond
+   [(atom? q)
+    q]
+   [(eq? thd (car q))
+    q]
+   [else
+    (remove-from-queue thd (cdr q))]))
+
+(define (thread-suspend thd)
+  (cond
+   [(and (not (thread-internal-terminated? thd))
+	 (not (thread-internal-suspended? thd)))
+    (set-thread-internal-suspended?! thd #t)
+    (let ([q (scheduler-queue global-scheduler)])
+      (cond
+       [(not (is-front? thd q))
+	(set-scheduler-queue! global-scheduler (remove-from-queue thd q))]))]))
+
 (define (thread-running? thd)
-  ;; is thread in list? is thread not suspended?
-  (and (in-queue? thd (scheduler-queue global-scheduler))
+  (and (not (thread-internal-terminated? thd))
        (not (thread-internal-suspended? thd))))
+
+(define (thread-dead? thd)
+  (thread-internal-terminated? thd))
+
+(define thread-resume
+  (case-lambda
+   [(thd)
+    (cond
+     [(and (not (thread-internal-terminated? thd))
+	   (thread-internal-suspended? thd))
+      (begin 
+	(set-thread-internal-suspended?! thd #f)
+	(enqueue thd))])]
+   [(thd benefactor) ;; ignore benefactor
+    (cond
+     [(and (not (thread-internal-terminated? thd))
+	   (thread-internal-suspended? thd))
+      (begin
+       (set-thread-internal-suspended?! thd #f)
+       (enqueue thd))])
+    ]))
+
+;; terminate the main thread?
+(define (kill-thread thd)
+  (cond
+   [(thread-internal-terminated? thd)
+    (void)]
+   [(thread-internal-s-to-k? thd)
+    (set-thread-internal-suspended?! thd #t)]
+   [else
+    (set-thread-internal-terminated?! thd #t)]))
 
 ;; MAILBOXES
 

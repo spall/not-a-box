@@ -8,6 +8,7 @@
           current-continuation-marks
 	  ;; threads
 	  thread thread/suspend-to-kill current-thread thread? thread-running?
+	  thread-dead? thread-resume kill-thread thread-suspend 
 	  thread-rewind-receive thread-try-receive thread-receive thread-send
 
           make-thread-cell
