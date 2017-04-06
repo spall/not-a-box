@@ -1,68 +1,64 @@
 
 (define-record thread-internal (eng id s-to-k? suspended? terminated? completed expired mailbox))
 ;; https://docs.racket-lang.org/reference/threads.html
-(define-record scheduler (queue idle?))
-;; i think i need a lock already. since the busy loop is in 1 thread and things are enqueued from
-;; the main thread
-
-(define (in-queue? thd queue)
-  (cond
-   [(atom? queue)
-    #f]
-   [(eq? thd (car queue))
-    #t]
-   [else
-    (in-queue? thd (cdr queue))]))
-      
-
-;; need to change when locks are added
-(define (thread-msg-block thd)
-  (let loop ()
-    (if (atom? (thread-internal-mailbox thd))
-	(loop)
-	(let* ([mailbox (thread-internal-mailbox thd)]
-	       [mail (car mailbox)])
-	  (set-thread-internal-mailbox! thd (cdr mailbox))
-	  mail))))
+(define-record scheduler (queue idle? mtx))
 
 (define (global-queue)
   (scheduler-queue global-scheduler))
 
+(define (acquire-sched-lock)
+  (lock-acquire (scheduler-mtx global-scheduler)))
+
+(define (release-sched-lock)
+  (lock-release (scheduler-mtx global-scheduler)))
+
 (define thread-id-counter 0)
 
-(define global-scheduler (make-scheduler '() #t))
+(define global-scheduler (make-scheduler '() #t (make-lock)))
 
 ;; add something to schedulers queue
 (define (enqueue t)
+  (acquire-sched-lock)
   (set-scheduler-queue! global-scheduler
-			(append (scheduler-queue global-scheduler)
-				(list t))))
+			(append (global-queue)
+				(list t)))
+  (release-sched-lock))
 
-(define (thread-completed fuel values)
-  (set-scheduler-queue! global-scheduler ;; remove self from queue. 
-			(cdr (scheduler-queue global-scheduler)))
-  (set-scheduler-idle?! global-scheduler #t)
-  values)
+(define (thread-completed t)
+  (lambda(fuel values)
+    (acquire-sched-lock)
+    (set-scheduler-queue! global-scheduler ;; remove self from queue. 
+			  (cdr (global-queue)))
+    (set-scheduler-idle?! global-scheduler #t)
+    (set-thread-internal-terminated?! t #t)
+    (release-sched-lock)
+    values))
 
 (define (thread-expired t)
   (lambda (eng)
+    (acquire-sched-lock)
     (set-scheduler-queue! global-scheduler ;; remove self from queue. 
-			  (cdr (scheduler-queue global-scheduler)))
+			  (cdr (global-queue)))
     (set-scheduler-idle?! global-scheduler #t)
+    (release-sched-lock)
     (set-thread-internal-eng! t eng)
     (enqueue t)))
 
 (define (busy-loop)
+  (acquire-sched-lock)
   (cond
-   [(atom? (scheduler-queue global-scheduler)) ;; nothing to schedule
+   [(atom? (global-queue)) ;; nothing to schedule
+    (release-sched-lock)
     (busy-loop)]
    [(scheduler-idle? global-scheduler) ;; something to schedule
-    (let ([newt (car (scheduler-queue global-scheduler))])
+    (let ([newt (car (global-queue))])
       (set-scheduler-idle?! global-scheduler #f)
-      ((thread-internal-eng newt) 50 (thread-internal-completed newt) 
+      (release-sched-lock)
+      ((thread-internal-eng newt) 50 ((thread-internal-completed newt) newt)
        ((thread-internal-expired newt) newt))
       (busy-loop))]
    [else ;; something already running
+    (release-sched-lock)
     (busy-loop)]))
 
 ;; 11.1.1 creating threads
@@ -95,7 +91,9 @@
 
 (define (current-thread)
   ;; what if there is no current thread?
-  (let ([q (scheduler-queue global-scheduler)])
+  (acquire-sched-lock)
+  (let ([q (global-queue)])
+    (release-sched-lock)
     (if (atom? q)
 	#f
 	(car q))))
@@ -123,10 +121,12 @@
    [(and (not (thread-internal-terminated? thd))
 	 (not (thread-internal-suspended? thd)))
     (set-thread-internal-suspended?! thd #t)
-    (let ([q (scheduler-queue global-scheduler)])
+    (acquire-sched-lock)
+    (let ([q (global-queue)])
       (cond
        [(not (is-front? thd q))
-	(set-scheduler-queue! global-scheduler (remove-from-queue thd q))]))]))
+	(set-scheduler-queue! global-scheduler (remove-from-queue thd q))])
+      (release-sched-lock))]))
 
 (define (thread-running? thd)
   (and (not (thread-internal-terminated? thd))
@@ -159,9 +159,9 @@
    [(thread-internal-terminated? thd)
     (void)]
    [(thread-internal-s-to-k? thd)
-    (set-thread-internal-suspended?! thd #t)]
+    (thread-suspend thd)]
    [else
-    (set-thread-internal-terminated?! thd #t)]))
+    (set-thread-internal-terminated?! thd #t)])) ;; do i need to remove from queue?
 
 ;; MAILBOXES
 
@@ -180,12 +180,19 @@
 	    (fail)))
     ]))
 
+;; block WHOLE REAL THREAD NOT JUST CURRENT "THREAD", probably bad.
 (define (thread-receive)
   ;; what if there is no current thread...
   (let ([ct (current-thread)])
     (if (not ct)
 	#f
-	(thread-msg-block ct))))
+	(let loop ()
+	  (if (atom? (thread-internal-mailbox ct))
+	      (loop)
+	      (let* ([mailbox (thread-internal-mailbox ct)]
+		     [mail (car mailbox)])
+		(set-thread-internal-mailbox! ct (cdr mailbox))
+		mail))))))
 
 ;; need ot change when locks are added
 (define (thread-try-receive)
@@ -214,3 +221,5 @@
 ;; start scheduler.
   (fork-thread busy-loop)
 
+
+;; what about blocking for a mailbox? what was the behavior sam asked about?
