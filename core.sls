@@ -7,9 +7,10 @@
           continuation-mark-set-first
           current-continuation-marks
 	  ;; threads
-	  thread thread/suspend-to-kill current-thread thread? thread-running?
-	  thread-dead? thread-resume kill-thread thread-suspend 
-	  thread-rewind-receive thread-try-receive thread-receive thread-send
+	  start-program
+	  thread thread/suspend-to-kill thread? current-thread ;; thread-running?
+	  kill-thread thread-resume thread-suspend ;; thread-dead?
+	  thread-send	  ;;thread-rewind-receive thread-try-receive thread-receive thread-send
 
           make-thread-cell
           thread-cell?
