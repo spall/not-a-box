@@ -8,9 +8,9 @@
           current-continuation-marks
 	  ;; threads
 	  start-program
-	  thread thread/suspend-to-kill thread? current-thread ;; thread-running?
-	  kill-thread thread-resume thread-suspend ;; thread-dead?
-	  thread-send	  ;;thread-rewind-receive thread-try-receive thread-receive thread-send
+	  thread thread/suspend-to-kill thread? current-thread thread-running?
+	  kill-thread thread-resume thread-suspend thread-dead? sleep
+	  thread-send thread-receive thread-try-receive thread-rewind-receive
 
           make-thread-cell
           thread-cell?
@@ -292,7 +292,7 @@
   (import (rename (except (chezscheme)
                           date? make-date
                           list?
-			  thread?)
+			  thread? sleep)
                   [date-second chez:date-second]
                   [date-minute chez:date-minute]
                   [date-hour chez:date-hour]
@@ -343,6 +343,7 @@
   (include "core-system.ss")
   (include "core-unsafe.ss")
   (include "core-threads.ss")
+  (include "atomic.ss")
   
   (set-base-exception-handler!)
   (set-primitive-applicables!))

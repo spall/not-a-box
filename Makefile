@@ -97,7 +97,7 @@ CORE_SRCS = core-constant.ss \
             core-unsafe.ss
 
 core.so: core.sls $(CORE_SRCS)
-	$(COMP) '(optimize-level 3)' '(compile-file "core.sls")' | $(SCHEME) -q
+	$(COMP) '(compile-file "core.sls")' | $(SCHEME) -q
 
 # To build various ".rktl" files from sources, which requires
 # a linklet-based Racket repo clone identified by a

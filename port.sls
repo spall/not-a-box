@@ -105,7 +105,7 @@
                           date? make-date date-second date-minute date-hour date-day date-month date-year
                           date-week-day date-year-day
                           random
-			  thread?)
+			  thread? sleep)
                   [make-parameter chez:make-parameter]
                   [void chez:void]
                   [standard-input-port current-input-port]

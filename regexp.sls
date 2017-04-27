@@ -40,7 +40,7 @@
                           date? make-date date-second date-minute date-hour date-day date-month date-year
                           date-week-day date-year-day
                           random
-			  thread?)
+			  thread? sleep)
                   [void chez:void])
           (core)
           (port))

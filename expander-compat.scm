@@ -243,7 +243,6 @@
 (define-values (prop:evt evt? evt-ref) (make-struct-type-property 'evt))
 (define (wrap-evt e v) e)
 (define always-evt 'always)
-(define (sleep . args) (void))
 (define (thread-wait t) t)
 (define (thread-receive-evt t) 'thread-receive-evt)
 (define (thread-group? v) #f)

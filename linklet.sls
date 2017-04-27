@@ -37,7 +37,7 @@
                   date? make-date date-second date-minute date-hour date-day date-month date-year
                   date-week-day date-year-day
                   void random
-		  thread?)
+		  thread? sleep)
           (core)
           (only (port)
                 path?
